@@ -1,0 +1,7 @@
+# Saídas de depuração de sessões anteriores (não são arquivos de referência do projeto)
+/_check_cobranca.xlsx
+/Folha de Pagamento - Op 2952.pdf
+/Relatorios de Cobranca - Op 2952.pdf
+
+# Configurações locais do Claude Code (histórico de permissões desta máquina)
+/.claude/settings.local.json

@@ -1,0 +1,153 @@
+// Sistema de Folha de Pagamento - Vigias Portuários
+// local/tipoDia/periodo são strings com valores fixos validados em
+// app/lib/tipos.ts (herdado de quando o banco era SQLite, sem enums nativos —
+// mantido em string ao migrar para Postgres para não precisar reescrever
+// todo o código que já valida esses valores no lado do TypeScript).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Usuários que podem entrar no sistema (login por usuário + senha).
+model Usuario {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  senhaHash    String
+  criadoEm     DateTime @default(now())
+}
+
+model Vigia {
+  id           Int           @id @default(autoincrement())
+  matricula    Int
+  nome         String
+  apontamentos Apontamento[]
+
+  @@index([matricula])
+}
+
+model Agencia {
+  id          Int        @id @default(autoincrement())
+  cnpj        String
+  razaoSocial String
+  endereco    String
+  cep         String
+  cidade      String
+  uf          String
+  telefone    String?
+  email       String?
+  // % de repasse que a agência recebe de volta via Nota de Crédito (prática
+  // comercial de algumas agências) — null/0 = agência não recebe repasse.
+  percentualRepasse Float?
+  // Modelo de texto da Nota de Crédito a usar quando percentualRepasse está
+  // preenchido: ALL_FLAGS (desconto sobre a Taxa de Administração, abatido do
+  // total geral) | NORTH_STAR (desconto direto sobre o valor da fatura).
+  modeloNC          String?
+  // Valor cobrado por período (turno) de serviço de lancha, quando a agência
+  // contrata esse serviço além do vigia (ex: North Star, R$ 700,00/período).
+  // Gera uma Fatura de Serviços extra (numeração própria) + sua própria NC.
+  valorLancha       Float?
+  operacoes   Operacao[]
+}
+
+model Feriado {
+  id        Int      @id @default(autoincrement())
+  data      DateTime
+  descricao String
+}
+
+model TarifaVigencia {
+  id           Int           @id @default(autoincrement())
+  vigenteDesde DateTime
+  criadoEm     DateTime      @default(now())
+  valores      TarifaValor[]
+}
+
+model TarifaValor {
+  id               Int            @id @default(autoincrement())
+  tarifaVigenciaId Int
+  tarifaVigencia   TarifaVigencia @relation(fields: [tarifaVigenciaId], references: [id], onDelete: Cascade)
+  // local: ATRACADO | AO_LARGO
+  local            String
+  // tipoDia: UTIL | SABADO | DOMINGO | FERIADO
+  tipoDia          String
+  // periodo: DIA | NOITE
+  periodo          String
+  // valor final do turno de 6h, já com R.S.R. embutido (fonte: Tabela salario vigia.xlsx)
+  valorFinal       Float
+  // Encargos de referência deste turno — normalmente valorFinal x percentual padrão
+  // (Férias 12,12% / 13º 9,09% / FGTS 9,7% / INSS Patronal 28,713%), mas editáveis
+  // porque a tabela oficial do sindicato às vezes traz acertos pontuais de
+  // arredondamento célula a célula (não é a regra padrão, só exceção documentada).
+  ferias           Float          @default(0)
+  decimoTerceiro   Float          @default(0)
+  fgts             Float          @default(0)
+  inssPatronal     Float          @default(0)
+
+  @@unique([tarifaVigenciaId, local, tipoDia, periodo])
+}
+
+model Operacao {
+  id           Int           @id @default(autoincrement())
+  numero       Int           @unique
+  navio        String
+  porto        String
+  agenciaId    Int
+  agencia      Agencia       @relation(fields: [agenciaId], references: [id])
+  dataInicial  DateTime
+  dataFinal    DateTime
+  // slotInicial/slotFinal: índice (0-3) do período da grade do porto em que o
+  // trabalho começou/terminou (ex: 0 = 1º período do dia, 3 = último período/madrugada)
+  slotInicial  Int           @default(0)
+  slotFinal    Int           @default(3)
+  // local: ATRACADO | AO_LARGO — vale para todos os períodos da operação
+  local        String        @default("ATRACADO")
+  // modoVigia: MANUAL (escolhe o vigia de cada apontamento) | ALEATORIO (sistema sorteia)
+  modoVigia    String        @default("MANUAL")
+  // Número sequencial da Fatura de Serviços extra de Lancha (quando a agência tem
+  // valorLancha configurado). Atribuído uma única vez, na 1ª vez que o relatório é
+  // gerado, para não mudar a cada novo PDF pedido.
+  numeroLancha Int?          @unique
+  criadoEm     DateTime      @default(now())
+  apontamentos Apontamento[]
+}
+
+model Apontamento {
+  id             Int      @id @default(autoincrement())
+  operacaoId     Int
+  operacao       Operacao @relation(fields: [operacaoId], references: [id], onDelete: Cascade)
+  vigiaId        Int
+  vigia          Vigia    @relation(fields: [vigiaId], references: [id])
+  data           DateTime
+  periodoInicial Int
+  periodoFinal   Int
+  // periodo: DIA | NOITE
+  periodo        String
+  // local: ATRACADO | AO_LARGO
+  local          String
+  movimentacao   String?
+}
+
+// Ajustes manuais por vigia dentro de uma operação (Pensão, Crédito, Débito),
+// exibidos na Folha de Pagamento. Ficam zerados por padrão.
+model AjusteFolha {
+  id         Int      @id @default(autoincrement())
+  operacaoId Int
+  vigiaId    Int
+  pensao     Float    @default(0)
+  credito    Float    @default(0)
+  debito     Float    @default(0)
+
+  @@unique([operacaoId, vigiaId])
+}
+
+model Configuracao {
+  id             Int   @id @default(1)
+  proximoNumero  Int   @default(1)
+  valorVT        Float @default(0)
+  valorVR        Float @default(0)
+}
