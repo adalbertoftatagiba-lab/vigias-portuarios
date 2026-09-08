@@ -5,3 +5,6 @@
 
 # Configurações locais do Claude Code (histórico de permissões desta máquina)
 /.claude/settings.local.json
+
+# Zip temporário gerado para envio manual ao GitHub (não faz parte do projeto)
+/vigias-portuarios-codigo.zip

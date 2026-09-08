@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { gradeDoPorto, LOCAL_LABEL, Local, rotuloSlotComHora } from "@/lib/tipos";
+import { gradeDoPorto, LOCAL_LABEL, Local, rotuloSlotComHora, slotDoApontamento } from "@/lib/tipos";
 import { criarApontamento, excluirApontamento, gerarApontamentosAutomaticos, salvarAjuste } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -28,10 +28,17 @@ export default async function ApontamentosPage({ params }: { params: Promise<{ i
     prisma.vigia.findMany({ orderBy: { matricula: "asc" } }),
     prisma.apontamento.findMany({
       where: { operacaoId },
-      orderBy: [{ data: "asc" }, { periodoInicial: "asc" }],
+      orderBy: { data: "asc" },
       include: { vigia: true },
     }),
   ]);
+
+  // A hora inicial sozinha não dá a ordem certa do dia (o 4º período, de
+  // madrugada, tem hora menor que o 1º) — reordena pelo slot real (1º a 4º).
+  apontamentos.sort((a, b) => {
+    if (a.data.getTime() !== b.data.getTime()) return a.data.getTime() - b.data.getTime();
+    return slotDoApontamento(operacao.porto, a.periodoInicial) - slotDoApontamento(operacao.porto, b.periodoInicial);
+  });
 
   const grade = gradeDoPorto(operacao.porto);
 

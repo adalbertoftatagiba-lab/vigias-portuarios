@@ -12,7 +12,7 @@ import {
   classificarApontamento,
   round2,
 } from "@/lib/calculo";
-import { Local, Periodo } from "@/lib/tipos";
+import { Local, Periodo, slotDoApontamento } from "@/lib/tipos";
 import { obterVigenciaEm, paraMapa } from "@/lib/tarifas";
 
 const DIAS_SEMANA_NOME = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
@@ -76,7 +76,13 @@ export async function montarDadosOperacao(operacaoId: number): Promise<DadosOper
   const apontamentos = await prisma.apontamento.findMany({
     where: { operacaoId },
     include: { vigia: true },
-    orderBy: [{ data: "asc" }, { periodoInicial: "asc" }],
+    orderBy: { data: "asc" },
+  });
+  // A hora inicial sozinha não dá a ordem certa do dia (o 4º período, de
+  // madrugada, tem hora menor que o 1º) — reordena pelo slot real (1º a 4º).
+  apontamentos.sort((a, b) => {
+    if (a.data.getTime() !== b.data.getTime()) return a.data.getTime() - b.data.getTime();
+    return slotDoApontamento(operacao.porto, a.periodoInicial) - slotDoApontamento(operacao.porto, b.periodoInicial);
   });
 
   const feriados = await prisma.feriado.findMany();

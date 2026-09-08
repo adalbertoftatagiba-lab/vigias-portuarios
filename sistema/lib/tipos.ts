@@ -62,6 +62,18 @@ export function rotuloSlotComHora(porto: string, slot: number): string {
 }
 
 /**
+ * Índice do slot (0-3) de um apontamento a partir da hora inicial do turno.
+ * Necessário para ordenar apontamentos na sequência real do dia (1º a 4º
+ * período): o 4º período (madrugada, ex: 01h–07h) tem hora inicial MENOR que
+ * o 1º (ex: 07h–13h), então ordenar direto pela hora colocaria a madrugada
+ * antes — aqui ela fica corretamente por último.
+ */
+export function slotDoApontamento(porto: string, periodoInicial: number): number {
+  const indice = gradeDoPorto(porto).findIndex((j) => j.inicial === periodoInicial);
+  return indice === -1 ? 0 : indice;
+}
+
+/**
  * Lista todos os períodos (data + slot) entre o início e o fim de uma operação,
  * andando slot a slot (a grade tem sempre 4 períodos/dia, virando o dia no slot 4→0).
  * Usada para gerar os apontamentos de uma operação de uma só vez.
