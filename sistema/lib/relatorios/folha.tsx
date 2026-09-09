@@ -1,5 +1,5 @@
 import { Document, Page, Text, View, renderToBuffer } from "@react-pdf/renderer";
-import { LOCAL_LABEL, Local } from "@/lib/tipos";
+import { LOCAL_LABEL, Local, slotDoApontamento } from "@/lib/tipos";
 import { ResultadoVigia } from "@/lib/calculo";
 import { DadosOperacao, LinhaDetalhe } from "./dados";
 import { estilos, fmtMoeda, fmtDataBR } from "./pdf-estilos";
@@ -156,9 +156,23 @@ export async function gerarFolhaPdf(dados: DadosOperacao): Promise<Buffer> {
     detalhesPorVigia.set(linha.vigiaId, arr);
   }
 
+  // Páginas na ordem cronológica real da operação (dia a dia, período a
+  // período — 1º ao 4º), não por matrícula: cada vigia entra na posição do
+  // seu primeiro turno trabalhado (detalhesApontamentos já vem nessa ordem).
+  const resultadosOrdenados = [...dados.resultadosPorVigia].sort((a, b) => {
+    const primeiraA = detalhesPorVigia.get(a.vigiaId)?.[0];
+    const primeiraB = detalhesPorVigia.get(b.vigiaId)?.[0];
+    if (!primeiraA || !primeiraB) return 0;
+    if (primeiraA.data.getTime() !== primeiraB.data.getTime()) return primeiraA.data.getTime() - primeiraB.data.getTime();
+    return (
+      slotDoApontamento(dados.operacao.porto, primeiraA.periodoInicial) -
+      slotDoApontamento(dados.operacao.porto, primeiraB.periodoInicial)
+    );
+  });
+
   const documento = (
     <Document>
-      {dados.resultadosPorVigia.map((resultado) => (
+      {resultadosOrdenados.map((resultado) => (
         <PaginaVigia key={resultado.vigiaId} dados={dados} resultado={resultado} linhas={detalhesPorVigia.get(resultado.vigiaId) ?? []} />
       ))}
     </Document>

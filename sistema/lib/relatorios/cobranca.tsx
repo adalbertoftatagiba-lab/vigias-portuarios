@@ -270,13 +270,22 @@ function PaginaNotaDebito({ dados, local }: { dados: DadosOperacao; local: strin
   );
 }
 
-/** Gera um único PDF com 3 páginas: Faturamento, Fatura de Serviços e Nota de Débito. */
-export async function gerarCobrancaPdf(dados: DadosOperacao): Promise<Buffer> {
+/** Gera o Relatório de Faturamento sozinho (documento próprio, com nome de arquivo próprio). */
+export async function gerarFaturamentoPdf(dados: DadosOperacao): Promise<Buffer> {
   const local = LOCAL_LABEL[dados.operacao.localPredominante].toUpperCase();
-
   const documento = (
     <Document>
       <PaginaFaturamento dados={dados} local={local} />
+    </Document>
+  );
+  return renderToBuffer(documento);
+}
+
+/** Gera a Fatura de Serviços de vigia sozinha (documento próprio, com nome de arquivo próprio). */
+export async function gerarFaturaServicosPdf(dados: DadosOperacao): Promise<Buffer> {
+  const local = LOCAL_LABEL[dados.operacao.localPredominante].toUpperCase();
+  const documento = (
+    <Document>
       <PaginaFaturaServicos
         dados={dados}
         local={local}
@@ -284,10 +293,19 @@ export async function gerarCobrancaPdf(dados: DadosOperacao): Promise<Buffer> {
         descricaoServico="Taxa de Administração com Vigias"
         valor={dados.faturaServicos}
       />
+    </Document>
+  );
+  return renderToBuffer(documento);
+}
+
+/** Gera a Nota de Débito sozinha (documento próprio, com nome de arquivo próprio). */
+export async function gerarNotaDebitoPdf(dados: DadosOperacao): Promise<Buffer> {
+  const local = LOCAL_LABEL[dados.operacao.localPredominante].toUpperCase();
+  const documento = (
+    <Document>
       <PaginaNotaDebito dados={dados} local={local} />
     </Document>
   );
-
   return renderToBuffer(documento);
 }
 

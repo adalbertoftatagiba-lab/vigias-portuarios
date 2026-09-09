@@ -53,13 +53,25 @@ export default async function RelatoriosPage({ params }: { params: Promise<{ id:
           </p>
         </a>
         <a
-          href={`/api/operacoes/${operacaoId}/cobranca`}
+          href={`/api/operacoes/${operacaoId}/faturamento`}
           className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md hover:border-slate-300 transition"
         >
-          <h2 className="font-semibold">Relatórios de Cobrança (PDF)</h2>
-          <p className="text-sm text-slate-600 mt-1">
-            3 páginas: Faturamento, Fatura de Serviços e Nota de Débito.
-          </p>
+          <h2 className="font-semibold">Relatório de Faturamento (PDF)</h2>
+          <p className="text-sm text-slate-600 mt-1">Custos e memória de cálculo dos encargos da operação.</p>
+        </a>
+        <a
+          href={`/api/operacoes/${operacaoId}/fatura-servicos`}
+          className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md hover:border-slate-300 transition"
+        >
+          <h2 className="font-semibold">Fatura de Serviços (PDF)</h2>
+          <p className="text-sm text-slate-600 mt-1">Taxa de administração cobrada da agência.</p>
+        </a>
+        <a
+          href={`/api/operacoes/${operacaoId}/nota-debito`}
+          className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md hover:border-slate-300 transition"
+        >
+          <h2 className="font-semibold">Nota de Débito (PDF)</h2>
+          <p className="text-sm text-slate-600 mt-1">Repasse do custo com os vigias + benefícios.</p>
         </a>
         {dados.agencia.percentualRepasse != null && dados.agencia.modeloNC && (
           <a

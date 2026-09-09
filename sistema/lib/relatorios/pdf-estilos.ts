@@ -190,6 +190,11 @@ export function formatarEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+/** Remove aspas e quebras de linha do nome do navio antes de usar em nome de arquivo (cabeçalho HTTP). */
+export function nomeArquivoSeguro(texto: string): string {
+  return texto.replace(/["\r\n]/g, "").trim();
+}
+
 const MESES_POR_EXTENSO = [
   "janeiro",
   "fevereiro",
