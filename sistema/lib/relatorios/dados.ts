@@ -129,7 +129,9 @@ export async function montarDadosOperacao(operacaoId: number): Promise<DadosOper
       local,
       valorHora: round2(mmoBruta / 6),
       mmoBruta,
-      diaSemana: DIAS_SEMANA_NOME[ap.data.getUTCDay()],
+      // Em dia de feriado, a coluna "Tipo de Dia" mostra "Feriado" (é o que
+      // pautou o cálculo do turno) em vez do nome do dia da semana.
+      diaSemana: tipoDia === "FERIADO" ? "Feriado" : DIAS_SEMANA_NOME[ap.data.getUTCDay()],
       movimentacao: ap.movimentacao ?? "",
     });
   }
