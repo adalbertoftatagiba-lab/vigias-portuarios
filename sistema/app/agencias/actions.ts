@@ -26,6 +26,7 @@ function campos(formData: FormData) {
     // não faz sentido mesmo que tenha sobrado algo preenchido no formulário.
     modeloNC: percentualRepasse ? String(formData.get("modeloNC") ?? "").trim() || null : null,
     valorLancha: numeroOuNulo(formData.get("valorLancha")),
+    dadosBancariosAlternativos: String(formData.get("dadosBancariosAlternativos") ?? "").trim() || null,
   };
 }
 

@@ -107,14 +107,29 @@ function DadosNavioPorto({ dados, local }: { dados: DadosOperacao; local: string
   );
 }
 
-function RodapeBanco() {
+function RodapeBanco({ dadosBancariosAlternativos }: { dadosBancariosAlternativos: string | null }) {
+  const linhasAlternativas = dadosBancariosAlternativos
+    ?.split("\n")
+    .map((linha) => linha.trim())
+    .filter(Boolean);
+
   return (
     <View style={estilos.rodapeBanco}>
       <Text style={estilos.rodapeBancoTitulo}>MUITO IMPORTANTE</Text>
       <Text style={estilos.rodapeBancoTexto}>Os pagamentos devem ser realizados somente na conta abaixo descriminada:</Text>
-      <Text style={estilos.rodapeBancoTexto}>SINDICATO DOS VIGIAS PORTUÁRIOS DO ESTADO DO RIO DE JANEIRO</Text>
-      <Text style={estilos.rodapeBancoTexto}>CNPJ: 34.160.960/0001-30</Text>
-      <Text style={estilos.rodapeBancoTexto}>CAIXA ECONÔMICA FEDERAL — AG. 0209 — OP: 1388 — C/POUPANÇA: 000718677787-3</Text>
+      {linhasAlternativas && linhasAlternativas.length > 0 ? (
+        linhasAlternativas.map((linha, i) => (
+          <Text key={i} style={estilos.rodapeBancoTexto}>
+            {linha}
+          </Text>
+        ))
+      ) : (
+        <>
+          <Text style={estilos.rodapeBancoTexto}>SINDICATO DOS VIGIAS PORTUÁRIOS DO ESTADO DO RIO DE JANEIRO</Text>
+          <Text style={estilos.rodapeBancoTexto}>CNPJ: 34.160.960/0001-30</Text>
+          <Text style={estilos.rodapeBancoTexto}>CAIXA ECONÔMICA FEDERAL — AG. 0209 — OP: 1388 — C/POUPANÇA: 000718677787-3</Text>
+        </>
+      )}
     </View>
   );
 }
@@ -177,7 +192,7 @@ function PaginaFaturamento({ dados, local }: { dados: DadosOperacao; local: stri
         </View>
       </View>
 
-      <RodapeBanco />
+      <RodapeBanco dadosBancariosAlternativos={dados.agencia.dadosBancariosAlternativos} />
     </Page>
   );
 }

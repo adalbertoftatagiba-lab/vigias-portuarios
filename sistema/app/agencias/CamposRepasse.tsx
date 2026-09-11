@@ -15,11 +15,13 @@ export function CamposRepasse({
   percentualInicial,
   modeloInicial,
   valorLanchaInicial,
+  dadosBancariosAlternativosInicial,
 }: {
   prefixId: string;
   percentualInicial?: number | null;
   modeloInicial?: string | null;
   valorLanchaInicial?: number | null;
+  dadosBancariosAlternativosInicial?: string | null;
 }) {
   const [percentual, setPercentual] = useState(percentualInicial != null ? String(percentualInicial) : "");
   const temRepasse = percentual.trim() !== "" && Number(percentual) > 0;
@@ -58,6 +60,19 @@ export function CamposRepasse({
           step="0.01"
           form={prefixId}
           defaultValue={valorLanchaInicial ?? ""}
+          className={campoCls}
+        />
+      </div>
+      <div className="sm:col-span-2">
+        <label className={labelCls}>
+          Dados bancários alternativos p/ Relatório de Faturamento (opcional — uma linha por campo; deixe em branco
+          para usar a conta padrão do sindicato)
+        </label>
+        <textarea
+          name="dadosBancariosAlternativos"
+          form={prefixId}
+          rows={4}
+          defaultValue={dadosBancariosAlternativosInicial ?? ""}
           className={campoCls}
         />
       </div>

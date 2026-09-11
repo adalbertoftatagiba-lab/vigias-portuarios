@@ -114,6 +114,7 @@ function CamposAgenciaValores({
     percentualRepasse: number | null;
     modeloNC: string | null;
     valorLancha: number | null;
+    dadosBancariosAlternativos: string | null;
   };
 }) {
   return (
@@ -157,6 +158,7 @@ function CamposAgenciaValores({
         percentualInicial={agencia.percentualRepasse}
         modeloInicial={agencia.modeloNC}
         valorLanchaInicial={agencia.valorLancha}
+        dadosBancariosAlternativosInicial={agencia.dadosBancariosAlternativos}
       />
     </div>
   );
