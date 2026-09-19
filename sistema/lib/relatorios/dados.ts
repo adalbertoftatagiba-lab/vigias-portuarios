@@ -55,6 +55,7 @@ export type DadosOperacao = {
     email: string | null;
     percentualRepasse: number | null;
     modeloNC: string | null;
+    dadosBancariosAlternativos: string | null;
   };
   detalhesApontamentos: LinhaDetalhe[];
   resultadosPorVigia: ResultadoVigia[];

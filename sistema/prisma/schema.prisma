@@ -51,6 +51,12 @@ model Agencia {
   // contrata esse serviço além do vigia (ex: North Star, R$ 700,00/período).
   // Gera uma Fatura de Serviços extra (numeração própria) + sua própria NC.
   valorLancha       Float?
+  // Texto livre (uma linha por Text) com os dados bancários a exibir no
+  // rodapé do Relatório de Faturamento no lugar dos dados padrão do
+  // sindicato — usado quando a agência deve depositar em conta de terceiro
+  // (ex: LMA Shipping deposita na conta pessoal de Fábio José de Souza, não
+  // na conta do sindicato). null/vazio = usa os dados padrão do sindicato.
+  dadosBancariosAlternativos String?
   operacoes   Operacao[]
 }
 
