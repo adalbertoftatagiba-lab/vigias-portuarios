@@ -1,7 +1,12 @@
 import { Document, Page, Text, View, renderToBuffer } from "@react-pdf/renderer";
 import { LOCAL_LABEL, rotuloSlotComHora } from "@/lib/tipos";
 import { DadosOperacao } from "./dados";
-import { capitalizarPalavras, estilos, fmtMoeda, fmtDataBR, formatarEmail } from "./pdf-estilos";
+import { capitalizarPalavras, cores, estilos, fmtMoeda, fmtDataBR, formatarEmail } from "./pdf-estilos";
+
+/** Nº do documento no cabeçalho: mesmo tamanho e negrito do título do relatório. */
+function NumeroDocumento({ numero }: { numero: number }) {
+  return <Text style={{ ...estilos.tituloSindicato, color: cores.texto }}>Nº {numero}</Text>;
+}
 
 function CampoHeader({
   label,
@@ -107,14 +112,29 @@ function DadosNavioPorto({ dados, local }: { dados: DadosOperacao; local: string
   );
 }
 
-function RodapeBanco() {
+function RodapeBanco({ dadosBancariosAlternativos }: { dadosBancariosAlternativos: string | null }) {
+  const linhasAlternativas = dadosBancariosAlternativos
+    ?.split("\n")
+    .map((linha) => linha.trim())
+    .filter(Boolean);
+
   return (
     <View style={estilos.rodapeBanco}>
       <Text style={estilos.rodapeBancoTitulo}>MUITO IMPORTANTE</Text>
       <Text style={estilos.rodapeBancoTexto}>Os pagamentos devem ser realizados somente na conta abaixo descriminada:</Text>
-      <Text style={estilos.rodapeBancoTexto}>SINDICATO DOS VIGIAS PORTUÁRIOS DO ESTADO DO RIO DE JANEIRO</Text>
-      <Text style={estilos.rodapeBancoTexto}>CNPJ: 34.160.960/0001-30</Text>
-      <Text style={estilos.rodapeBancoTexto}>CAIXA ECONÔMICA FEDERAL — AG. 0209 — OP: 1388 — C/POUPANÇA: 000718677787-3</Text>
+      {linhasAlternativas && linhasAlternativas.length > 0 ? (
+        linhasAlternativas.map((linha, i) => (
+          <Text key={i} style={estilos.rodapeBancoTexto}>
+            {linha}
+          </Text>
+        ))
+      ) : (
+        <>
+          <Text style={estilos.rodapeBancoTexto}>SINDICATO DOS VIGIAS PORTUÁRIOS DO ESTADO DO RIO DE JANEIRO</Text>
+          <Text style={estilos.rodapeBancoTexto}>CNPJ: 34.160.960/0001-30</Text>
+          <Text style={estilos.rodapeBancoTexto}>CAIXA ECONÔMICA FEDERAL — AG. 0209 — OP: 1388 — C/POUPANÇA: 000718677787-3</Text>
+        </>
+      )}
     </View>
   );
 }
@@ -124,7 +144,9 @@ function PaginaFaturamento({ dados, local }: { dados: DadosOperacao; local: stri
   return (
     <Page size="A4" style={estilos.pagina}>
       <Text style={estilos.tituloSindicato}>RELATÓRIO DE FATURAMENTO</Text>
-      <Text style={estilos.subtitulo}>Nº {dados.operacao.numero}</Text>
+      <Text style={estilos.subtitulo}>
+        <NumeroDocumento numero={dados.operacao.numero} />
+      </Text>
 
       <DadosNavioPorto dados={dados} local={local} />
 
@@ -177,7 +199,7 @@ function PaginaFaturamento({ dados, local }: { dados: DadosOperacao; local: stri
         </View>
       </View>
 
-      <RodapeBanco />
+      <RodapeBanco dadosBancariosAlternativos={dados.agencia.dadosBancariosAlternativos} />
     </Page>
   );
 }
@@ -200,7 +222,7 @@ function PaginaFaturaServicos({
     <Page size="A4" style={estilos.pagina}>
       <Text style={estilos.tituloSindicato}>FATURA DE SERVIÇOS</Text>
       <Text style={estilos.subtitulo}>
-        Nº {numero} · Data: {hoje}
+        <NumeroDocumento numero={numero} /> · Data: {hoje}
       </Text>
 
       <DadosSindicato titulo="Prestador de Serviços" />
@@ -232,7 +254,7 @@ function PaginaNotaDebito({ dados, local }: { dados: DadosOperacao; local: strin
     <Page size="A4" style={estilos.pagina}>
       <Text style={estilos.tituloSindicato}>NOTA DE DÉBITO</Text>
       <Text style={estilos.subtitulo}>
-        Nº {dados.operacao.numero} - Nat. Da Operação: Repasse de Custo - Data: {hoje}
+        <NumeroDocumento numero={dados.operacao.numero} /> - Nat. Da Operação: Repasse de Custo - Data: {hoje}
       </Text>
 
       <DadosSindicato titulo="Dados do Sindicato" />
