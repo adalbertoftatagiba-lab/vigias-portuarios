@@ -49,7 +49,14 @@ export async function criarOperacao(formData: FormData) {
   });
 
   if (operacao.modoVigia === "ALEATORIO") {
-    await gerarApontamentosAutomaticamente(operacao);
+    // A operação já foi criada; se o sorteio falhar (ex: timeout por banco
+    // frio), não derruba a página — o usuário cai na tela de apontamentos e
+    // pode completar os períodos pendentes pelo botão de lá.
+    try {
+      await gerarApontamentosAutomaticamente(operacao);
+    } catch (erro) {
+      console.error(`Falha ao sortear apontamentos automaticamente (operação ${operacao.id}):`, erro);
+    }
   }
 
   revalidatePath("/operacoes");

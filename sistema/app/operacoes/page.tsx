@@ -5,6 +5,12 @@ import { LOCAL_LABEL, Local, ROTULOS_SLOT_GENERICO, rotuloSlotComHora } from "@/
 import { atualizarOperacao, criarOperacao, excluirOperacao } from "./actions";
 
 export const dynamic = "force-dynamic";
+// criarOperacao em modo ALEATORIO encadeia várias idas ao banco (transação +
+// busca de vigias/apontamentos + inserção em lote); com o banco frio (ex:
+// Neon suspenso por inatividade), isso pode passar do timeout padrão da
+// função serverless. maxDuration na página estende o limite dessa Server
+// Action (ver docs do Next.js: Server Actions herdam o maxDuration da página).
+export const maxDuration = 30;
 
 const campoCls = "w-full rounded border border-slate-300 px-2 py-1";
 const labelCls = "block text-xs text-slate-600";
