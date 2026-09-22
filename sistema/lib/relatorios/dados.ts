@@ -14,6 +14,7 @@ import {
 } from "@/lib/calculo";
 import { Local, Periodo, slotDoApontamento } from "@/lib/tipos";
 import { obterVigenciaEm, paraMapa } from "@/lib/tarifas";
+import { proximoNumeroSequencial } from "@/lib/numeracao";
 
 const DIAS_SEMANA_NOME = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
@@ -214,12 +215,7 @@ export async function montarDadosOperacao(operacaoId: number): Promise<DadosOper
     const numero =
       operacao.numeroLancha ??
       (await prisma.$transaction(async (tx) => {
-        const config = await tx.configuracao.upsert({
-          where: { id: 1 },
-          create: { id: 1, proximoNumero: 2, valorVT: 0, valorVR: 0 },
-          update: { proximoNumero: { increment: 1 } },
-        });
-        const proximo = config.proximoNumero - 1;
+        const proximo = await proximoNumeroSequencial(tx);
         await tx.operacao.update({ where: { id: operacaoId }, data: { numeroLancha: proximo } });
         return proximo;
       }));
