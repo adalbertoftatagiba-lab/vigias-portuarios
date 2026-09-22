@@ -59,6 +59,11 @@ export type DadosOperacao = {
   };
   detalhesApontamentos: LinhaDetalhe[];
   resultadosPorVigia: ResultadoVigia[];
+  // Um resultado por apontamento (turno), alinhado 1:1 com detalhesApontamentos
+  // (mesma ordem) — usado para gerar a Folha de Pagamento com uma página
+  // individual por turno, mesmo quando o vigia trabalha 2 ou 3 turnos na
+  // mesma operação (cada turno é um documento de folha separado).
+  resultadosPorTurno: ResultadoVigia[];
   quantidadeTurnos: number;
   faturamento: ResultadoFaturamento;
   faturaServicos: number;
@@ -95,6 +100,9 @@ export async function montarDadosOperacao(operacaoId: number): Promise<DadosOper
   const valoresPorVigia = new Map<number, { matricula: number; nome: string; valores: number[]; encargos: LinhaTarifa[] }>();
   const contagemLocal = new Map<Local, number>();
   const detalhesApontamentos: LinhaDetalhe[] = [];
+  // Turno a turno (mesma ordem de detalhesApontamentos), para montar
+  // resultadosPorTurno depois do loop.
+  const turnosParaResultado: { vigiaId: number; matricula: number; nome: string; valorFinal: number; encargo: LinhaTarifa }[] = [];
 
   for (const ap of apontamentos) {
     const tipoDia = classificarApontamento(ap.data, feriadosDatas);
@@ -116,6 +124,14 @@ export async function montarDadosOperacao(operacaoId: number): Promise<DadosOper
     entrada.valores.push(valorFinal);
     entrada.encargos.push(tarifaTurno);
     valoresPorVigia.set(ap.vigiaId, entrada);
+
+    turnosParaResultado.push({
+      vigiaId: ap.vigiaId,
+      matricula: ap.vigia.matricula,
+      nome: ap.vigia.nome,
+      valorFinal,
+      encargo: tarifaTurno,
+    });
 
     contagemLocal.set(local, (contagemLocal.get(local) ?? 0) + 1);
 
@@ -151,6 +167,27 @@ export async function montarDadosOperacao(operacaoId: number): Promise<DadosOper
     });
   });
   resultadosPorVigia.sort((a, b) => a.matricula - b.matricula);
+
+  // Índice (na ordem cronológica real da operação) do último turno de cada
+  // vigia — o ajuste manual (pensão/crédito/débito), lançado uma única vez
+  // por vigia por operação, entra só na folha desse turno, para não duplicar
+  // o desconto/crédito em cada folha individual do mesmo vigia.
+  const ultimoIndicePorVigia = new Map<number, number>();
+  turnosParaResultado.forEach((t, i) => ultimoIndicePorVigia.set(t.vigiaId, i));
+
+  const resultadosPorTurno: ResultadoVigia[] = turnosParaResultado.map((t, i) => {
+    const ajuste = ultimoIndicePorVigia.get(t.vigiaId) === i ? ajustePorVigia.get(t.vigiaId) : undefined;
+    return calcularResultadoVigia({
+      vigiaId: t.vigiaId,
+      matricula: t.matricula,
+      nome: t.nome,
+      valoresFinaisTurnos: [t.valorFinal],
+      encargosTurnos: [t.encargo],
+      pensao: ajuste?.pensao,
+      credito: ajuste?.credito,
+      debito: ajuste?.debito,
+    });
+  });
 
   const mmoVigias = resultadosPorVigia.reduce((acc, r) => acc + r.totalProventos, 0);
   const quantidadeTurnos = apontamentos.length;
@@ -204,6 +241,7 @@ export async function montarDadosOperacao(operacaoId: number): Promise<DadosOper
     agencia: operacao.agencia,
     detalhesApontamentos,
     resultadosPorVigia,
+    resultadosPorTurno,
     quantidadeTurnos,
     faturamento,
     faturaServicos: calcularFaturaServicos(faturamento),

@@ -49,7 +49,7 @@ export default async function RelatoriosPage({ params }: { params: Promise<{ id:
         >
           <h2 className="font-semibold">Folhas de Pagamento (PDF)</h2>
           <p className="text-sm text-slate-600 mt-1">
-            Um PDF com uma página por vigia, com o detalhe dos apontamentos e o cálculo individual.
+            Um PDF com uma página por turno trabalhado, com o detalhe do apontamento e o cálculo individual.
           </p>
         </a>
         <a
