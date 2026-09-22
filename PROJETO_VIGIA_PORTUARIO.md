@@ -128,3 +128,70 @@ Baseado no modelo `Relatórios_de_cobrança.xlsx` (3 abas), ver arquivo de refer
 - Revisar os percentuais reais na `Tabela_salario_vigia.xlsx` assim que reanexada, para confirmar
   se batem com os valores hardcoded observados nos modelos (0,1818 / 0,11 / 0,0488 / 0,0909 /
   0,1212 / 0,097 / 0,28713 / 0,5962 / 0,9).
+
+## 9. Estado atual e histórico de correções relevantes
+
+> Seções 1–8 são o documento original de especificação. O sistema já está em produção (Next.js +
+> Postgres/Neon, hospedado na Vercel, repositório GitHub `adalbertoftatagiba-lab/vigias-portuarios`).
+> Esta seção registra decisões e correções feitas depois que o sistema já estava rodando, para que
+> fiquem preservadas independente da conversa que as gerou.
+
+### 9.1 Folha de Pagamento — uma página por turno (não por vigia)
+
+Antes, a Folha de Pagamento agrupava **todos os turnos de um mesmo vigia numa operação** em uma
+única página/cálculo — se o vigia trabalhasse 2 ou 3 turnos na mesma operação, eles apareciam juntos
+numa só folha, com um total combinado. Isso está **incorreto**: a regra confirmada com o usuário é
+que **cada turno trabalhado gera sua própria folha individual**, com seu próprio cálculo de MMO
+Bruta/R.S.R/INSS/DAS/etc., mesmo que seja o mesmo vigia na mesma operação.
+
+- Implementado em `lib/relatorios/dados.ts` (novo campo `resultadosPorTurno`, um resultado por
+  apontamento) e `lib/relatorios/folha.tsx` (uma `PaginaVigia` por turno).
+- O ajuste manual (Pensão/Crédito/Débito), lançado uma vez por vigia por operação, entra só na folha
+  do **último turno** do vigia naquela operação — para não duplicar o desconto/crédito em cada folha.
+- O resumo "Folha por vigia" (tela de Relatórios) e o cálculo do Relatório de Faturamento continuam
+  agregados por vigia — isso não mudou, pois servem para a cobrança da agência, não para a folha
+  individual do vigia.
+
+### 9.2 "Sortear automaticamente" travava o sistema (erro de servidor)
+
+Ao criar uma operação nova com "Sortear automaticamente" marcado, a página quebrava com uma tela de
+erro genérica. Foram encontradas e corrigidas **três causas reais e distintas** ao longo da
+investigação (a primeira tentativa de correção nem sempre acerta a causa raiz de primeira):
+
+1. **Intervalo de data/período invertido**: se "Data final" ficasse antes de "Data inicial" (ou o
+   "Último período trabalhado" antes do "Período em que o trabalho começou"), o sistema tentava gerar
+   até ~1500 apontamentos de uma vez, sem validar. Corrigido: o sistema agora recusa intervalos
+   inválidos antes de criar a operação (`lib/tipos.ts`: `enumerarPeriodos`/`intervaloEmOrdem`).
+2. **Timeout de função serverless com banco frio**: o Neon (banco Postgres) "dorme" após um tempo sem
+   uso; o modo ALEATORIO encadeia várias idas ao banco numa mesma requisição, o que podia passar do
+   tempo limite padrão. Aumentado `maxDuration` para 30s nas páginas relevantes, e o sorteio
+   automático ficou protegido por `try/catch` (a operação é criada mesmo que o sorteio falhe; dá pra
+   completar os períodos pendentes depois, pelo botão que já existe na tela de apontamentos).
+3. **Causa raiz real deste incidente**: o contador `Configuracao.proximoNumero` (campo "Próximo
+   número a ser usado" na tela **Configurações**) tinha sido editado manualmente para um valor **mais
+   baixo** que o maior número de operação já existente — cada tentativa de criar uma operação nova
+   colidia com um número já em uso (`Unique constraint failed on the fields: ('numero')`), e como a
+   transação sempre revertia nesse ponto, o contador nunca avançava, então o erro se repetia idêntico
+   a cada tentativa. **Corrigido definitivamente**: `lib/numeracao.ts` (`proximoNumeroSequencial`)
+   agora calcula o próximo número a partir do maior valor **realmente em uso** (não só do contador
+   salvo), se autocorrigindo sozinho diante de qualquer dessincronia — edição manual errada na tela de
+   Configurações, uma futura migração de dados, etc.
+4. Também foi adicionado: se a criação de uma operação falhar por qualquer outro motivo não previsto,
+   a mensagem de erro real aparece num aviso na tela `/operacoes` (em vez de uma tela de erro
+   genérica), o que foi o que permitiu identificar a causa raiz nº 3 acima.
+
+**Lição operacional:** o campo "Próximo número a ser usado" em Configurações deve ser sempre maior
+que o número da última operação criada (a própria tela mostra esse valor de referência). Depois da
+correção 9.2.3, o sistema não deve mais travar mesmo que esse campo seja editado incorretamente — mas
+o valor exibido lá pode ficar "adiantado" em relação ao esperado, já que agora ele se ajusta sozinho.
+
+### 9.3 Infraestrutura
+
+- **Hospedagem:** Vercel (deploy automático a cada merge no branch `main`).
+- **Banco de dados:** Neon (Postgres gerenciado), acessado via `@prisma/adapter-neon` — não é um
+  produto próprio da Vercel, é um serviço separado (Neon) comumente usado junto com ela.
+- **Atualização de dados de referência** (tabela de tarifas do sindicato, cadastro de vigias, lista de
+  feriados etc.): processo separado, feito localmente pelo usuário — extrai um zip com os arquivos
+  `.xlsx`/`.docx` atualizados por cima dos existentes na raiz do repositório, e roda
+  `npx tsx prisma/seed.ts` (ou o script de migração equivalente) para carregar no banco. Não tem
+  relação com deploy de código nem precisa de PR.
