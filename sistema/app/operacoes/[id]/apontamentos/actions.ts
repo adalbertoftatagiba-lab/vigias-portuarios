@@ -55,7 +55,13 @@ export async function gerarApontamentosAutomaticos(formData: FormData) {
   const operacao = await prisma.operacao.findUnique({ where: { id: operacaoId } });
   if (!operacao || operacao.modoVigia !== "ALEATORIO") return;
 
-  await gerarApontamentosAutomaticamente(operacao);
+  // Operações com data/período final antes do inicial (só possíveis se criadas
+  // antes da validação de intervalo existir) não devem derrubar a página.
+  try {
+    await gerarApontamentosAutomaticamente(operacao);
+  } catch {
+    return;
+  }
 
   revalidatePath(`/operacoes/${operacaoId}/apontamentos`);
 }
