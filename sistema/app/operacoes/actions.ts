@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { gerarApontamentosAutomaticamente } from "@/lib/apontamentos";
 import { intervaloEmOrdem } from "@/lib/tipos";
+import { proximoNumeroSequencial } from "@/lib/numeracao";
 
 export async function criarOperacao(formData: FormData) {
   const navio = String(formData.get("navio") ?? "").trim();
@@ -27,12 +28,7 @@ export async function criarOperacao(formData: FormData) {
   let operacao;
   try {
     operacao = await prisma.$transaction(async (tx) => {
-      const config = await tx.configuracao.upsert({
-        where: { id: 1 },
-        create: { id: 1, proximoNumero: 2, valorVT: 0, valorVR: 0 },
-        update: { proximoNumero: { increment: 1 } },
-      });
-      const numero = config.proximoNumero - 1;
+      const numero = await proximoNumeroSequencial(tx);
 
       return tx.operacao.create({
         data: {
