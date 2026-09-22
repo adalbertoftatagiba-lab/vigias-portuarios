@@ -24,29 +24,36 @@ export async function criarOperacao(formData: FormData) {
   // aqui, antes de criar a operação, em vez de deixar o sorteio travar depois.
   if (!intervaloEmOrdem(new Date(dataInicial), slotInicial, new Date(dataFinal), slotFinal)) return;
 
-  const operacao = await prisma.$transaction(async (tx) => {
-    const config = await tx.configuracao.upsert({
-      where: { id: 1 },
-      create: { id: 1, proximoNumero: 2, valorVT: 0, valorVR: 0 },
-      update: { proximoNumero: { increment: 1 } },
-    });
-    const numero = config.proximoNumero - 1;
+  let operacao;
+  try {
+    operacao = await prisma.$transaction(async (tx) => {
+      const config = await tx.configuracao.upsert({
+        where: { id: 1 },
+        create: { id: 1, proximoNumero: 2, valorVT: 0, valorVR: 0 },
+        update: { proximoNumero: { increment: 1 } },
+      });
+      const numero = config.proximoNumero - 1;
 
-    return tx.operacao.create({
-      data: {
-        numero,
-        navio,
-        porto,
-        agenciaId,
-        dataInicial: new Date(dataInicial),
-        dataFinal: new Date(dataFinal),
-        slotInicial,
-        slotFinal,
-        local,
-        modoVigia,
-      },
+      return tx.operacao.create({
+        data: {
+          numero,
+          navio,
+          porto,
+          agenciaId,
+          dataInicial: new Date(dataInicial),
+          dataFinal: new Date(dataFinal),
+          slotInicial,
+          slotFinal,
+          local,
+          modoVigia,
+        },
+      });
     });
-  });
+  } catch (erro) {
+    console.error("Falha ao criar operação:", erro);
+    const mensagem = erro instanceof Error ? erro.message : String(erro);
+    redirect(`/operacoes?erro=${encodeURIComponent(mensagem)}`);
+  }
 
   if (operacao.modoVigia === "ALEATORIO") {
     // A operação já foi criada; se o sorteio falhar (ex: timeout por banco
