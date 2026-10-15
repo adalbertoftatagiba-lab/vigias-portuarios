@@ -19,6 +19,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     numero: dados.operacao.numero,
     percentual: dados.agencia.percentualRepasse,
     quantidadeTurnos: dados.quantidadeTurnos,
+    dadosBancariosAlternativos: dados.agencia.dadosBancariosAlternativos,
   };
 
   const buffer =

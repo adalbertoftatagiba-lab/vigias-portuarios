@@ -20,6 +20,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     percentual: dados.agencia.percentualRepasse,
     quantidadeTurnos: dados.quantidadeTurnos,
     tipoServico: "Lancha Portuário",
+    dadosBancariosAlternativos: dados.agencia.dadosBancariosAlternativos,
   };
 
   const buffer = await gerarNotaCreditoNorthStarPdf(dadosCarta, dados.lancha.valor);

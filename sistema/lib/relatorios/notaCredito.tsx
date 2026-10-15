@@ -30,7 +30,29 @@ function Cabecalho() {
   );
 }
 
-function DadosBancarios() {
+/**
+ * Dados da conta para depósito. Quando a agência tem dados bancários
+ * alternativos cadastrados (ex: LMA, que deposita em conta de terceiro), eles
+ * substituem os do sindicato — mesmo texto usado no rodapé do Faturamento.
+ */
+function DadosBancarios({ dadosBancariosAlternativos }: { dadosBancariosAlternativos?: string | null }) {
+  const linhasAlternativas = dadosBancariosAlternativos
+    ?.split("\n")
+    .map((linha) => linha.trim())
+    .filter(Boolean);
+
+  if (linhasAlternativas && linhasAlternativas.length > 0) {
+    return (
+      <View style={estilosCarta.banco}>
+        {linhasAlternativas.map((linha, i) => (
+          <Text key={i} style={estilosCarta.bancoLinha}>
+            {linha}
+          </Text>
+        ))}
+      </View>
+    );
+  }
+
   return (
     <View style={estilosCarta.banco}>
       <Text style={estilosCarta.bancoLinha}>SINDICATO DOS VIGIAS PORTUÁRIOS DO ESTADO DO RIO DE JANEIRO</Text>
@@ -74,6 +96,7 @@ export type DadosNotaCredito = {
   quantidadeTurnos: number;
   tipoServico?: "Vigia Portuário" | "Lancha Portuário";
   prazoPagamento?: Date;
+  dadosBancariosAlternativos?: string | null;
 };
 
 /** Modelo "All Flags": desconto sobre a Taxa de Administração, abatido do total geral da operação. */
@@ -98,7 +121,7 @@ export function gerarNotaCreditoAllFlagsPdf(dados: DadosNotaCredito, faturamento
           Sendo assim, o valor a ser deduzido é de R$ {fmtMoeda(valorDeduzido)} e o valor total a ser pago é de R$ {fmtMoeda(valorLiquido)}
           . Segue abaixo os dados da conta para depósito:
         </Text>
-        <DadosBancarios />
+        <DadosBancarios dadosBancariosAlternativos={dados.dadosBancariosAlternativos} />
         <Text>Atenciosamente.</Text>
         <Assinatura />
       </Page>
@@ -133,7 +156,7 @@ export function gerarNotaCreditoNorthStarPdf(dados: DadosNotaCredito, valorFatur
           Sendo assim, solicitamos o depósito do valor de R$ {fmtMoeda(valorLiquido)}, até o dia {fmtDataBR(prazo)}, na conta bancária
           abaixo descriminada:
         </Text>
-        <DadosBancarios />
+        <DadosBancarios dadosBancariosAlternativos={dados.dadosBancariosAlternativos} />
         <Text>Atenciosamente.</Text>
         <Assinatura />
       </Page>
