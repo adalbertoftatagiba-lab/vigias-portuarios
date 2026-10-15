@@ -5,6 +5,12 @@ import { LOCAL_LABEL, Local, ROTULOS_SLOT_GENERICO, rotuloSlotComHora } from "@/
 import { atualizarOperacao, criarOperacao, excluirOperacao } from "./actions";
 
 export const dynamic = "force-dynamic";
+// criarOperacao em modo ALEATORIO encadeia várias idas ao banco (transação +
+// busca de vigias/apontamentos + inserção em lote); com o banco frio (ex:
+// Neon suspenso por inatividade), isso pode passar do timeout padrão da
+// função serverless. maxDuration na página estende o limite dessa Server
+// Action (ver docs do Next.js: Server Actions herdam o maxDuration da página).
+export const maxDuration = 30;
 
 const campoCls = "w-full rounded border border-slate-300 px-2 py-1";
 const labelCls = "block text-xs text-slate-600";
@@ -129,7 +135,8 @@ function CamposOperacao({
   );
 }
 
-export default async function OperacoesPage() {
+export default async function OperacoesPage({ searchParams }: { searchParams: Promise<{ erro?: string }> }) {
+  const { erro } = await searchParams;
   const [operacoes, agencias] = await Promise.all([
     prisma.operacao.findMany({
       orderBy: { numero: "desc" },
@@ -144,6 +151,13 @@ export default async function OperacoesPage() {
         <h1 className="text-xl font-semibold">Operações</h1>
         <p className="text-sm text-slate-600">Cada operação agrupa os apontamentos de um navio + agência.</p>
       </div>
+
+      {erro && (
+        <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-800">
+          <p className="font-medium">Não foi possível criar a operação.</p>
+          <p className="mt-1 break-words font-mono text-xs">{erro}</p>
+        </div>
+      )}
 
       <details className="rounded-lg border border-slate-200 bg-white p-4" open={operacoes.length === 0}>
         <summary className="cursor-pointer font-medium text-sm">+ Nova operação</summary>

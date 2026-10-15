@@ -73,10 +73,27 @@ export function slotDoApontamento(porto: string, periodoInicial: number): number
   return indice === -1 ? 0 : indice;
 }
 
+/** Posição ordinal de um período (data + slot) na sequência do tempo — permite
+ * comparar dois pontos (data, slot) sem percorrer a grade dia a dia. */
+function ordinalPeriodo(data: Date, slot: number): number {
+  return Math.round(data.getTime() / 86400000) * 4 + slot;
+}
+
+/** true se (dataFinal, slotFinal) vem depois (ou é igual a) (dataInicial, slotInicial). */
+export function intervaloEmOrdem(dataInicial: Date, slotInicial: number, dataFinal: Date, slotFinal: number): boolean {
+  const inicio = ordinalPeriodo(dataInicial, slotInicial);
+  const fim = ordinalPeriodo(dataFinal, slotFinal);
+  return Number.isFinite(inicio) && Number.isFinite(fim) && fim >= inicio;
+}
+
 /**
  * Lista todos os períodos (data + slot) entre o início e o fim de uma operação,
  * andando slot a slot (a grade tem sempre 4 períodos/dia, virando o dia no slot 4→0).
  * Usada para gerar os apontamentos de uma operação de uma só vez.
+ *
+ * Rejeita intervalo invertido (fim antes do início, datas inválidas) em vez de
+ * varrer até um limite arbitrário — sem essa checagem, um erro de digitação nas
+ * datas/períodos gerava silenciosamente até ~1500 apontamentos numa operação só.
  */
 export function enumerarPeriodos(
   dataInicial: Date,
@@ -84,14 +101,18 @@ export function enumerarPeriodos(
   dataFinal: Date,
   slotFinal: number
 ): { data: Date; slot: number }[] {
+  const inicio = ordinalPeriodo(dataInicial, slotInicial);
+  const fim = ordinalPeriodo(dataFinal, slotFinal);
+  if (!Number.isFinite(inicio) || !Number.isFinite(fim) || fim < inicio) {
+    throw new Error("Intervalo de datas/períodos inválido: o período final não pode ser anterior ao inicial.");
+  }
+
   const periodos: { data: Date; slot: number }[] = [];
   let data = dataInicial;
   let slot = slotInicial;
-  const limite = 4 * 366; // salvaguarda contra loop infinito em input inconsistente
 
-  for (let i = 0; i < limite; i++) {
+  for (let ordinal = inicio; ordinal <= fim; ordinal++) {
     periodos.push({ data, slot });
-    if (data.getTime() === dataFinal.getTime() && slot === slotFinal) break;
     slot += 1;
     if (slot > 3) {
       slot = 0;

@@ -5,6 +5,9 @@ import { gradeDoPorto, LOCAL_LABEL, Local, rotuloSlotComHora, slotDoApontamento 
 import { criarApontamento, excluirApontamento, gerarApontamentosAutomaticos, salvarAjuste } from "./actions";
 
 export const dynamic = "force-dynamic";
+// Ver app/operacoes/page.tsx: gerarApontamentosAutomaticos encadeia várias
+// idas ao banco e pode passar do timeout padrão da função com o banco frio.
+export const maxDuration = 30;
 
 function fmtData(d: Date) {
   return d.toISOString().slice(0, 10).split("-").reverse().join("/");
