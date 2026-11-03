@@ -16,6 +16,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     navio: dados.operacao.navio,
     dataInicial: dados.operacao.dataInicial,
     dataFinal: dados.operacao.dataFinal,
+    intervalos: dados.operacao.intervalos,
     numero: dados.operacao.numero,
     percentual: dados.agencia.percentualRepasse,
     quantidadeTurnos: dados.quantidadeTurnos,

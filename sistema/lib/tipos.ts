@@ -122,3 +122,41 @@ export function enumerarPeriodos(
 
   return periodos;
 }
+
+/** Trecho contínuo de trabalho dentro de uma operação (do 1º ao último período lançado). */
+export type IntervaloOperacao = { dataInicial: Date; slotInicial: number; dataFinal: Date; slotFinal: number };
+
+const UM_DIA_MS = 86400000;
+
+/**
+ * Agrupa os períodos lançados de uma operação em intervalos contínuos de dias.
+ * Um novo intervalo começa sempre que houver pelo menos um dia inteiro sem
+ * nenhum apontamento entre dois períodos lançados — é o caso do navio que fica
+ * ao largo, atraca (período não cobrado nesta operação) e volta ao largo: a
+ * cobrança mostra "13/10 a 15/10 e 24/10 a 30/10", pulando a vacância.
+ * Períodos vagos dentro de um mesmo dia ou em dias seguidos não quebram o intervalo.
+ * A lista de entrada pode vir em qualquer ordem.
+ */
+export function agruparIntervalos(periodos: { data: Date; slot: number }[]): IntervaloOperacao[] {
+  const ordenados = [...periodos].sort((a, b) => a.data.getTime() - b.data.getTime() || a.slot - b.slot);
+  const intervalos: IntervaloOperacao[] = [];
+
+  for (const p of ordenados) {
+    const atual = intervalos[intervalos.length - 1];
+    const diasDesdeUltimo = atual ? Math.round((p.data.getTime() - atual.dataFinal.getTime()) / UM_DIA_MS) : Infinity;
+    if (atual && diasDesdeUltimo <= 1) {
+      atual.dataFinal = p.data;
+      atual.slotFinal = p.slot;
+    } else {
+      intervalos.push({ dataInicial: p.data, slotInicial: p.slot, dataFinal: p.data, slotFinal: p.slot });
+    }
+  }
+
+  return intervalos;
+}
+
+/** true se a data (meia-noite UTC, como gravada no banco) está dentro de [de, ate], inclusive. */
+export function dataNoIntervalo(data: Date, de: Date, ate: Date): boolean {
+  const t = data.getTime();
+  return t >= de.getTime() && t <= ate.getTime();
+}

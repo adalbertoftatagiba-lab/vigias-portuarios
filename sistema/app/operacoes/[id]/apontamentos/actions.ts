@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { escolherVigiaAleatorio, gerarApontamentosAutomaticamente } from "@/lib/apontamentos";
-import { gradeDoPorto } from "@/lib/tipos";
+import { agruparIntervalos, gradeDoPorto, slotDoApontamento } from "@/lib/tipos";
 
 export async function criarApontamento(formData: FormData) {
   const operacaoId = Number(formData.get("operacaoId"));
@@ -55,10 +55,22 @@ export async function gerarApontamentosAutomaticos(formData: FormData) {
   const operacao = await prisma.operacao.findUnique({ where: { id: operacaoId } });
   if (!operacao || operacao.modoVigia !== "ALEATORIO") return;
 
+  // Se a operação já tem dias sem cobrança no meio (trechos separados), o
+  // "completar" não pode preencher esse vão — só completa dentro dos trechos.
+  const existentes = await prisma.apontamento.findMany({
+    where: { operacaoId },
+    select: { data: true, periodoInicial: true },
+  });
+  const trechos = agruparIntervalos(existentes.map((a) => ({ data: a.data, slot: slotDoApontamento(operacao.porto, a.periodoInicial) })));
+
   // Operações com data/período final antes do inicial (só possíveis se criadas
   // antes da validação de intervalo existir) não devem derrubar a página.
   try {
-    await gerarApontamentosAutomaticamente(operacao);
+    const vaos = trechos.slice(0, -1).map((t, i) => ({
+      de: new Date(t.dataFinal.getTime() + 86400000),
+      ate: new Date(trechos[i + 1].dataInicial.getTime() - 86400000),
+    }));
+    await gerarApontamentosAutomaticamente(operacao, vaos);
   } catch {
     return;
   }
@@ -89,4 +101,28 @@ export async function salvarAjuste(formData: FormData) {
   });
 
   revalidatePath(`/operacoes/${operacaoId}/apontamentos`);
+}
+
+/**
+ * Exclui de uma vez todos os apontamentos da operação entre duas datas
+ * (inclusive) — usado quando a operação foi lançada de forma contínua mas um
+ * trecho no meio não deve ser cobrado (ex: navio atracado de 16 a 23/10 entre
+ * dois períodos ao largo). Os relatórios passam a mostrar os trechos separados.
+ */
+export async function excluirApontamentosIntervalo(formData: FormData) {
+  const operacaoId = Number(formData.get("operacaoId"));
+  const de = String(formData.get("de") ?? "");
+  const ate = String(formData.get("ate") ?? "") || de;
+  if (!operacaoId || !de) return;
+
+  const dataDe = new Date(de);
+  const dataAte = new Date(ate);
+  if (Number.isNaN(dataDe.getTime()) || Number.isNaN(dataAte.getTime()) || dataAte < dataDe) return;
+
+  await prisma.apontamento.deleteMany({
+    where: { operacaoId, data: { gte: dataDe, lte: dataAte } },
+  });
+
+  revalidatePath(`/operacoes/${operacaoId}/apontamentos`);
+  revalidatePath(`/operacoes/${operacaoId}/relatorios`);
 }

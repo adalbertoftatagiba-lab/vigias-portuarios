@@ -12,7 +12,7 @@ import {
   classificarApontamento,
   round2,
 } from "@/lib/calculo";
-import { Local, Periodo, slotDoApontamento } from "@/lib/tipos";
+import { IntervaloOperacao, Local, Periodo, agruparIntervalos, slotDoApontamento } from "@/lib/tipos";
 import { obterVigenciaEm, paraMapa } from "@/lib/tarifas";
 import { proximoNumeroSequencial } from "@/lib/numeracao";
 
@@ -44,6 +44,10 @@ export type DadosOperacao = {
     slotInicial: number;
     slotFinal: number;
     localPredominante: Local;
+    // Trechos contínuos realmente trabalhados (montados a partir dos
+    // apontamentos). Normalmente é um só; vem mais de um quando a operação
+    // teve dias sem cobrança no meio (ex: 13–15/10 e 24–30/10).
+    intervalos: IntervaloOperacao[];
   };
   agencia: {
     cnpj: string;
@@ -222,6 +226,16 @@ export async function montarDadosOperacao(operacaoId: number): Promise<DadosOper
     lancha = { numero, valor: round2(quantidadeTurnos * operacao.agencia.valorLancha) };
   }
 
+  const intervalosApontados = agruparIntervalos(
+    apontamentos.map((a) => ({ data: a.data, slot: slotDoApontamento(operacao.porto, a.periodoInicial) }))
+  );
+  // Com um só trecho (caso normal), os relatórios continuam mostrando as datas
+  // e períodos cadastrados na operação, exatamente como antes.
+  const intervalos: IntervaloOperacao[] =
+    intervalosApontados.length > 1
+      ? intervalosApontados
+      : [{ dataInicial: operacao.dataInicial, slotInicial: operacao.slotInicial, dataFinal: operacao.dataFinal, slotFinal: operacao.slotFinal }];
+
   return {
     operacao: {
       id: operacao.id,
@@ -233,6 +247,7 @@ export async function montarDadosOperacao(operacaoId: number): Promise<DadosOper
       slotInicial: operacao.slotInicial,
       slotFinal: operacao.slotFinal,
       localPredominante,
+      intervalos,
     },
     agencia: operacao.agencia,
     detalhesApontamentos,

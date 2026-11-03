@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { enumerarPeriodos, gradeDoPorto } from "@/lib/tipos";
+import { dataNoIntervalo, enumerarPeriodos, gradeDoPorto } from "@/lib/tipos";
 
 export function escolherVigiaAleatorio(vigiaIds: number[]): number | null {
   if (vigiaIds.length === 0) return null;
@@ -21,8 +21,15 @@ type OperacaoParaGeracao = {
  * (dataInicial, slotInicial) ao (dataFinal, slotFinal), sorteando um vigia por
  * período. Pula períodos que já têm apontamento lançado (idempotente, então
  * pode ser chamada de novo com segurança).
+ *
+ * `semCobranca` (opcional): um ou mais trechos de dias, inclusive, que ficam de fora do sorteio — ex:
+ * navio que atracou no meio da operação e esse trecho não é cobrado.
  */
-export async function gerarApontamentosAutomaticamente(operacao: OperacaoParaGeracao) {
+export async function gerarApontamentosAutomaticamente(
+  operacao: OperacaoParaGeracao,
+  semCobranca?: { de: Date; ate: Date } | { de: Date; ate: Date }[] | null
+) {
+  const vaos = semCobranca ? (Array.isArray(semCobranca) ? semCobranca : [semCobranca]) : [];
   const [vigias, existentes] = await Promise.all([
     prisma.vigia.findMany({ select: { id: true } }),
     prisma.apontamento.findMany({
@@ -40,6 +47,7 @@ export async function gerarApontamentosAutomaticamente(operacao: OperacaoParaGer
   const novos = periodos
     .map(({ data, slot }) => ({ data, janela: grade[slot] }))
     .filter(({ data, janela }) => janela && !jaLancados.has(`${data.getTime()}|${janela.inicial}`))
+    .filter(({ data }) => !vaos.some((v) => dataNoIntervalo(data, v.de, v.ate)))
     .map(({ data, janela }) => ({
       operacaoId: operacao.id,
       vigiaId: escolherVigiaAleatorio(vigiaIds)!,

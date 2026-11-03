@@ -163,6 +163,24 @@ export default async function OperacoesPage({ searchParams }: { searchParams: Pr
         <summary className="cursor-pointer font-medium text-sm">+ Nova operação</summary>
         <form action={criarOperacao} className="mt-3 grid gap-3 sm:grid-cols-2">
           <CamposOperacao agencias={agencias} />
+          <div className="sm:col-span-2 rounded border border-dashed border-slate-300 p-3">
+            <p className="text-xs font-medium text-slate-700">Dias sem cobrança no meio da operação (opcional)</p>
+            <p className="mb-2 text-xs text-slate-500">
+              Ex.: navio ao largo de 13 a 15/10, atracado de 16 a 23/10 (não cobrado) e ao largo de novo de 24 a 30/10 —
+              informe aqui 16/10 a 23/10. O sorteio pula esses dias e os relatórios mostram os trechos separados.
+              Deixe em branco se a operação for contínua.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>De</label>
+                <input name="semCobrancaDe" type="date" className={campoCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Até</label>
+                <input name="semCobrancaAte" type="date" className={campoCls} />
+              </div>
+            </div>
+          </div>
           <div className="sm:col-span-2">
             <button type="submit" className="rounded bg-slate-900 px-4 py-1.5 text-sm text-white hover:bg-slate-700">
               Criar e ir para apontamentos

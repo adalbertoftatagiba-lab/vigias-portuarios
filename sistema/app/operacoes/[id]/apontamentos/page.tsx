@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { gradeDoPorto, LOCAL_LABEL, Local, rotuloSlotComHora, slotDoApontamento } from "@/lib/tipos";
-import { criarApontamento, excluirApontamento, gerarApontamentosAutomaticos, salvarAjuste } from "./actions";
+import { agruparIntervalos, gradeDoPorto, LOCAL_LABEL, Local, rotuloSlotComHora, slotDoApontamento } from "@/lib/tipos";
+import { criarApontamento, excluirApontamento, excluirApontamentosIntervalo, gerarApontamentosAutomaticos, salvarAjuste } from "./actions";
 
 export const dynamic = "force-dynamic";
 // Ver app/operacoes/page.tsx: gerarApontamentosAutomaticos encadeia várias
@@ -44,6 +44,9 @@ export default async function ApontamentosPage({ params }: { params: Promise<{ i
   });
 
   const grade = gradeDoPorto(operacao.porto);
+  const trechos = agruparIntervalos(
+    apontamentos.map((a) => ({ data: a.data, slot: slotDoApontamento(operacao.porto, a.periodoInicial) }))
+  );
 
   const vigiaIdsUsados = [...new Set(apontamentos.map((a) => a.vigiaId))];
   const ajustes = await prisma.ajusteFolha.findMany({
@@ -70,6 +73,44 @@ export default async function ApontamentosPage({ params }: { params: Promise<{ i
           Ir para relatórios
         </Link>
       </div>
+
+      {trechos.length > 1 && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+          <p className="font-medium">Operação com dias sem cobrança no meio — os relatórios vão mostrar os trechos separados:</p>
+          <ul className="mt-1 list-disc pl-5">
+            {trechos.map((t, i) => (
+              <li key={i}>
+                {fmtData(t.dataInicial)} ({rotuloSlotComHora(operacao.porto, t.slotInicial)}) a {fmtData(t.dataFinal)} (
+                {rotuloSlotComHora(operacao.porto, t.slotFinal)})
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <form
+        action={excluirApontamentosIntervalo}
+        className="rounded-lg border border-slate-200 bg-white p-4 grid gap-3 sm:grid-cols-6 items-end"
+      >
+        <input type="hidden" name="operacaoId" value={operacao.id} />
+        <div className="sm:col-span-3">
+          <p className="text-sm font-medium">Retirar dias sem cobrança</p>
+          <p className="text-xs text-slate-500">
+            Exclui todos os apontamentos entre as duas datas (ex.: navio atracado de 16 a 23/10 que não será cobrado nesta operação).
+          </p>
+        </div>
+        <div>
+          <label className="block text-xs text-slate-600">De</label>
+          <input name="de" type="date" required className="w-full rounded border border-slate-300 px-2 py-1" />
+        </div>
+        <div>
+          <label className="block text-xs text-slate-600">Até</label>
+          <input name="ate" type="date" required className="w-full rounded border border-slate-300 px-2 py-1" />
+        </div>
+        <button type="submit" className="rounded border border-red-300 px-4 py-1.5 text-sm text-red-700 hover:bg-red-50">
+          Excluir esses dias
+        </button>
+      </form>
 
       {operacao.modoVigia === "ALEATORIO" && (
         <form action={gerarApontamentosAutomaticos} className="rounded-lg border border-slate-200 bg-white p-4 flex items-center justify-between gap-3 flex-wrap">
