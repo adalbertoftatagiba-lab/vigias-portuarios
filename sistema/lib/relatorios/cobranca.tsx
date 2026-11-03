@@ -89,6 +89,33 @@ function DadosSindicato({ titulo }: { titulo: string }) {
 
 /** Dados do navio/porto da operação, repetidos em Faturamento, Fatura de Serviços e Nota de Débito. */
 function DadosNavioPorto({ dados, local }: { dados: DadosOperacao; local: string }) {
+  const { intervalos, porto } = dados.operacao;
+
+  // Operação com dias sem cobrança no meio (ex: navio ao largo de 13 a 15/10,
+  // atracado sem cobrança, e ao largo de novo de 24 a 30/10): em vez de Data
+  // Inicial/Final, lista cada trecho trabalhado numa linha própria.
+  if (intervalos.length > 1) {
+    const trechos = intervalos
+      .map(
+        (i) =>
+          `${fmtDataBR(i.dataInicial)} (${rotuloSlotComHora(porto, i.slotInicial)}) a ${fmtDataBR(i.dataFinal)} (${rotuloSlotComHora(porto, i.slotFinal)})`
+      )
+      .join("  e  ");
+    return (
+      <>
+        <Text style={estilos.secaoTitulo}>Dados do Navio/Porto</Text>
+        <View style={estilos.headerGrid}>
+          <CampoHeader label="Nome do Navio" valor={dados.operacao.navio} largura="40%" />
+          <CampoHeader label="Porto" valor={porto} largura="30%" />
+          <CampoHeader label="Local" valor={local} largura="30%" ultimo />
+        </View>
+        <View style={estilos.headerGrid}>
+          <CampoHeader label="Períodos cobrados" valor={trechos} largura="100%" ultimo />
+        </View>
+      </>
+    );
+  }
+
   return (
     <>
       <Text style={estilos.secaoTitulo}>Dados do Navio/Porto</Text>

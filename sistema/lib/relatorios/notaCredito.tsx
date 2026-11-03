@@ -1,6 +1,7 @@
 import { Document, Page, Text, View, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
 import { ResultadoFaturamento, calcularNotaCreditoAllFlags, calcularNotaCreditoSobreValor } from "@/lib/calculo";
 import { fmtDataBR, fmtDataPorExtenso, fmtMoeda, porExtenso } from "./pdf-estilos";
+import type { IntervaloOperacao } from "@/lib/tipos";
 
 const estilosCarta = StyleSheet.create({
   pagina: { padding: 48, fontSize: 10, fontFamily: "Helvetica", color: "#1e293b" },
@@ -79,11 +80,25 @@ function Assinatura() {
  * quando início e fim caem no mesmo mês/ano (só o dia do início, mês/ano só no
  * fim), ou "do dia 28/08/2026 a 02/09/2026" por extenso quando não caem.
  */
-function formatarPeriodoCarta(dataInicial: Date, dataFinal: Date): string {
+function formatarTrechoCarta(dataInicial: Date, dataFinal: Date): string {
   if (dataInicial.getTime() === dataFinal.getTime()) return fmtDataBR(dataInicial);
   const mesmoMes = dataInicial.getUTCFullYear() === dataFinal.getUTCFullYear() && dataInicial.getUTCMonth() === dataFinal.getUTCMonth();
   const inicio = mesmoMes ? fmtDataBR(dataInicial).slice(0, 2) : fmtDataBR(dataInicial);
   return `${inicio} a ${fmtDataBR(dataFinal)}`;
+}
+
+/**
+ * Frase de período da carta considerando os trechos realmente cobrados: com
+ * dias sem cobrança no meio da operação, junta os trechos com vírgula/"e"
+ * ("do dia 13 a 15/10/2026 e 24 a 30/10/2026").
+ */
+function formatarPeriodoCarta(dados: DadosNotaCredito): string {
+  const trechos =
+    dados.intervalos && dados.intervalos.length > 1
+      ? dados.intervalos.map((i) => formatarTrechoCarta(i.dataInicial, i.dataFinal))
+      : [formatarTrechoCarta(dados.dataInicial, dados.dataFinal)];
+  if (trechos.length === 1) return trechos[0];
+  return `${trechos.slice(0, -1).join(", ")} e ${trechos[trechos.length - 1]}`;
 }
 
 export type DadosNotaCredito = {
@@ -91,6 +106,9 @@ export type DadosNotaCredito = {
   navio: string;
   dataInicial: Date;
   dataFinal: Date;
+  // Trechos cobrados (ver DadosOperacao.operacao.intervalos); com mais de um,
+  // substitui dataInicial/dataFinal no texto da carta.
+  intervalos?: IntervaloOperacao[];
   numero: number;
   percentual: number;
   quantidadeTurnos: number;
@@ -102,7 +120,7 @@ export type DadosNotaCredito = {
 /** Modelo "All Flags": desconto sobre a Taxa de Administração, abatido do total geral da operação. */
 export function gerarNotaCreditoAllFlagsPdf(dados: DadosNotaCredito, faturamento: ResultadoFaturamento) {
   const { valorDeduzido, valorLiquido } = calcularNotaCreditoAllFlags(faturamento, dados.percentual);
-  const periodo = formatarPeriodoCarta(dados.dataInicial, dados.dataFinal);
+  const periodo = formatarPeriodoCarta(dados);
 
   const documento = (
     <Document>
@@ -135,7 +153,7 @@ export function gerarNotaCreditoAllFlagsPdf(dados: DadosNotaCredito, faturamento
 export function gerarNotaCreditoNorthStarPdf(dados: DadosNotaCredito, valorFatura: number) {
   const { valorLiquido } = calcularNotaCreditoSobreValor(valorFatura, dados.percentual);
   const tipoServico = dados.tipoServico ?? "Vigia Portuário";
-  const periodo = formatarPeriodoCarta(dados.dataInicial, dados.dataFinal);
+  const periodo = formatarPeriodoCarta(dados);
   const prazo = dados.prazoPagamento ?? new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() + 10));
 
   const documento = (

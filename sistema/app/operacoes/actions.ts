@@ -25,6 +25,20 @@ export async function criarOperacao(formData: FormData) {
   // aqui, antes de criar a operação, em vez de deixar o sorteio travar depois.
   if (!intervaloEmOrdem(new Date(dataInicial), slotInicial, new Date(dataFinal), slotFinal)) return;
 
+  // Dias sem cobrança no meio da operação (opcional): ficam de fora do sorteio
+  // automático, e os relatórios passam a mostrar os trechos separados.
+  const semCobrancaDe = String(formData.get("semCobrancaDe") ?? "");
+  const semCobrancaAte = String(formData.get("semCobrancaAte") ?? "");
+  let semCobranca: { de: Date; ate: Date } | null = null;
+  if (semCobrancaDe || semCobrancaAte) {
+    const de = new Date(semCobrancaDe || semCobrancaAte);
+    const ate = new Date(semCobrancaAte || semCobrancaDe);
+    if (Number.isNaN(de.getTime()) || Number.isNaN(ate.getTime()) || ate < de) {
+      redirect(`/operacoes?erro=${encodeURIComponent("Dias sem cobrança: a data final não pode ser anterior à inicial.")}`);
+    }
+    semCobranca = { de, ate };
+  }
+
   let operacao;
   try {
     operacao = await prisma.$transaction(async (tx) => {
@@ -56,7 +70,7 @@ export async function criarOperacao(formData: FormData) {
     // frio), não derruba a página — o usuário cai na tela de apontamentos e
     // pode completar os períodos pendentes pelo botão de lá.
     try {
-      await gerarApontamentosAutomaticamente(operacao);
+      await gerarApontamentosAutomaticamente(operacao, semCobranca);
     } catch (erro) {
       console.error(`Falha ao sortear apontamentos automaticamente (operação ${operacao.id}):`, erro);
     }
