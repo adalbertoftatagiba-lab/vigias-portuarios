@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { escolherVigiaAleatorio, gerarApontamentosAutomaticamente } from "@/lib/apontamentos";
-import { agruparIntervalos, gradeDoPorto, slotDoApontamento } from "@/lib/tipos";
+import { agruparIntervalos, gradeDoPorto, intervaloEmOrdem, periodoNoTrecho, slotDoApontamento, vaosEntreIntervalos } from "@/lib/tipos";
 
 export async function criarApontamento(formData: FormData) {
   const operacaoId = Number(formData.get("operacaoId"));
@@ -66,11 +66,7 @@ export async function gerarApontamentosAutomaticos(formData: FormData) {
   // Operações com data/período final antes do inicial (só possíveis se criadas
   // antes da validação de intervalo existir) não devem derrubar a página.
   try {
-    const vaos = trechos.slice(0, -1).map((t, i) => ({
-      de: new Date(t.dataFinal.getTime() + 86400000),
-      ate: new Date(trechos[i + 1].dataInicial.getTime() - 86400000),
-    }));
-    await gerarApontamentosAutomaticamente(operacao, vaos);
+    await gerarApontamentosAutomaticamente(operacao, vaosEntreIntervalos(trechos));
   } catch {
     return;
   }
@@ -104,24 +100,37 @@ export async function salvarAjuste(formData: FormData) {
 }
 
 /**
- * Exclui de uma vez todos os apontamentos da operação entre duas datas
- * (inclusive) — usado quando a operação foi lançada de forma contínua mas um
- * trecho no meio não deve ser cobrado (ex: navio atracado de 16 a 23/10 entre
- * dois períodos ao largo). Os relatórios passam a mostrar os trechos separados.
+ * Exclui de uma vez todos os apontamentos da operação entre dois pontos
+ * (data + período), inclusive — usado quando a operação foi lançada de forma
+ * contínua mas um trecho no meio não deve ser cobrado (ex: navio atracado do
+ * 3º período de 15/10 ao 2º período de 24/10). Os relatórios passam a mostrar
+ * os trechos separados.
  */
 export async function excluirApontamentosIntervalo(formData: FormData) {
   const operacaoId = Number(formData.get("operacaoId"));
   const de = String(formData.get("de") ?? "");
   const ate = String(formData.get("ate") ?? "") || de;
+  const deSlot = Number(formData.get("deSlot") ?? 0);
+  const ateSlot = Number(formData.get("ateSlot") ?? 3);
   if (!operacaoId || !de) return;
 
-  const dataDe = new Date(de);
-  const dataAte = new Date(ate);
-  if (Number.isNaN(dataDe.getTime()) || Number.isNaN(dataAte.getTime()) || dataAte < dataDe) return;
+  const trecho = { deData: new Date(de), deSlot, ateData: new Date(ate), ateSlot };
+  if (!intervaloEmOrdem(trecho.deData, deSlot, trecho.ateData, ateSlot)) return;
 
-  await prisma.apontamento.deleteMany({
-    where: { operacaoId, data: { gte: dataDe, lte: dataAte } },
+  const operacao = await prisma.operacao.findUnique({ where: { id: operacaoId } });
+  if (!operacao) return;
+
+  const candidatos = await prisma.apontamento.findMany({
+    where: { operacaoId, data: { gte: trecho.deData, lte: trecho.ateData } },
+    select: { id: true, data: true, periodoInicial: true },
   });
+  const ids = candidatos
+    .filter((a) => periodoNoTrecho(a.data, slotDoApontamento(operacao.porto, a.periodoInicial), trecho))
+    .map((a) => a.id);
+
+  if (ids.length > 0) {
+    await prisma.apontamento.deleteMany({ where: { id: { in: ids } } });
+  }
 
   revalidatePath(`/operacoes/${operacaoId}/apontamentos`);
   revalidatePath(`/operacoes/${operacaoId}/relatorios`);
