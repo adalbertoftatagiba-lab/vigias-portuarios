@@ -164,20 +164,40 @@ export default async function OperacoesPage({ searchParams }: { searchParams: Pr
         <form action={criarOperacao} className="mt-3 grid gap-3 sm:grid-cols-2">
           <CamposOperacao agencias={agencias} />
           <div className="sm:col-span-2 rounded border border-dashed border-slate-300 p-3">
-            <p className="text-xs font-medium text-slate-700">Dias sem cobrança no meio da operação (opcional)</p>
+            <p className="text-xs font-medium text-slate-700">Trecho sem cobrança no meio da operação (opcional)</p>
             <p className="mb-2 text-xs text-slate-500">
-              Ex.: navio ao largo de 13 a 15/10, atracado de 16 a 23/10 (não cobrado) e ao largo de novo de 24 a 30/10 —
-              informe aqui 16/10 a 23/10. O sorteio pula esses dias e os relatórios mostram os trechos separados.
-              Deixe em branco se a operação for contínua.
+              Ex.: navio ao largo até o 2º período de 15/10, atracado (não cobrado) e ao largo de novo a partir do 3º
+              período de 24/10 — informe aqui de 15/10, 3º período, até 24/10, 2º período. O sorteio pula esses
+              períodos e os relatórios mostram os trechos separados. Deixe em branco se a operação for contínua.
             </p>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelCls}>De</label>
+                <label className={labelCls}>Sem cobrança a partir de (data)</label>
                 <input name="semCobrancaDe" type="date" className={campoCls} />
               </div>
               <div>
-                <label className={labelCls}>Até</label>
+                <label className={labelCls}>Primeiro período sem cobrança</label>
+                <select name="semCobrancaDeSlot" defaultValue={0} className={campoCls}>
+                  {ROTULOS_SLOT_GENERICO.map((rotulo, i) => (
+                    <option key={i} value={i}>
+                      {rotulo}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Sem cobrança até (data)</label>
                 <input name="semCobrancaAte" type="date" className={campoCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Último período sem cobrança</label>
+                <select name="semCobrancaAteSlot" defaultValue={3} className={campoCls}>
+                  {ROTULOS_SLOT_GENERICO.map((rotulo, i) => (
+                    <option key={i} value={i}>
+                      {rotulo}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>

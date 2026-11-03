@@ -126,27 +126,26 @@ export function enumerarPeriodos(
 /** Trecho contínuo de trabalho dentro de uma operação (do 1º ao último período lançado). */
 export type IntervaloOperacao = { dataInicial: Date; slotInicial: number; dataFinal: Date; slotFinal: number };
 
-const UM_DIA_MS = 86400000;
-
 /**
- * Agrupa os períodos lançados de uma operação em intervalos contínuos de dias.
- * Um novo intervalo começa sempre que houver pelo menos um dia inteiro sem
- * nenhum apontamento entre dois períodos lançados — é o caso do navio que fica
- * ao largo, atraca (período não cobrado nesta operação) e volta ao largo: a
- * cobrança mostra "13/10 a 15/10 e 24/10 a 30/10", pulando a vacância.
- * Períodos vagos dentro de um mesmo dia ou em dias seguidos não quebram o intervalo.
- * A lista de entrada pode vir em qualquer ordem.
+ * Agrupa os períodos lançados de uma operação em trechos contínuos, período a
+ * período (4 por dia). Um novo trecho começa sempre que faltar pelo menos um
+ * período entre dois lançados — é o caso do navio que fica ao largo, atraca
+ * (período não cobrado nesta operação) e volta ao largo: a cobrança mostra
+ * "13/10 (1º) a 15/10 (2º) e 24/10 (3º) a 30/10 (4º)", pulando a vacância.
+ * Mais de um vigia no mesmo período não quebra o trecho. A lista pode vir em qualquer ordem.
  */
 export function agruparIntervalos(periodos: { data: Date; slot: number }[]): IntervaloOperacao[] {
-  const ordenados = [...periodos].sort((a, b) => a.data.getTime() - b.data.getTime() || a.slot - b.slot);
+  const ordenados = [...periodos].sort((a, b) => ordinalPeriodo(a.data, a.slot) - ordinalPeriodo(b.data, b.slot));
   const intervalos: IntervaloOperacao[] = [];
 
   for (const p of ordenados) {
     const atual = intervalos[intervalos.length - 1];
-    const diasDesdeUltimo = atual ? Math.round((p.data.getTime() - atual.dataFinal.getTime()) / UM_DIA_MS) : Infinity;
-    if (atual && diasDesdeUltimo <= 1) {
-      atual.dataFinal = p.data;
-      atual.slotFinal = p.slot;
+    const salto = atual ? ordinalPeriodo(p.data, p.slot) - ordinalPeriodo(atual.dataFinal, atual.slotFinal) : Infinity;
+    if (atual && salto <= 1) {
+      if (salto === 1) {
+        atual.dataFinal = p.data;
+        atual.slotFinal = p.slot;
+      }
     } else {
       intervalos.push({ dataInicial: p.data, slotInicial: p.slot, dataFinal: p.data, slotFinal: p.slot });
     }
@@ -155,8 +154,24 @@ export function agruparIntervalos(periodos: { data: Date; slot: number }[]): Int
   return intervalos;
 }
 
-/** true se a data (meia-noite UTC, como gravada no banco) está dentro de [de, ate], inclusive. */
-export function dataNoIntervalo(data: Date, de: Date, ate: Date): boolean {
-  const t = data.getTime();
-  return t >= de.getTime() && t <= ate.getTime();
+/** Trecho sem cobrança, do (data, período) inicial ao final, inclusive. */
+export type TrechoSemCobranca = { deData: Date; deSlot: number; ateData: Date; ateSlot: number };
+
+/** true se o período (data + slot 0-3) cai dentro do trecho sem cobrança. */
+export function periodoNoTrecho(data: Date, slot: number, t: TrechoSemCobranca): boolean {
+  const o = ordinalPeriodo(data, slot);
+  return o >= ordinalPeriodo(t.deData, t.deSlot) && o <= ordinalPeriodo(t.ateData, t.ateSlot);
+}
+
+/** Vãos (períodos sem lançamento) entre trechos consecutivos já apontados. */
+export function vaosEntreIntervalos(intervalos: IntervaloOperacao[]): TrechoSemCobranca[] {
+  const proximo = (data: Date, slot: number) =>
+    slot < 3 ? { data, slot: slot + 1 } : { data: new Date(data.getTime() + 86400000), slot: 0 };
+  const anterior = (data: Date, slot: number) =>
+    slot > 0 ? { data, slot: slot - 1 } : { data: new Date(data.getTime() - 86400000), slot: 3 };
+  return intervalos.slice(0, -1).map((t, i) => {
+    const de = proximo(t.dataFinal, t.slotFinal);
+    const ate = anterior(intervalos[i + 1].dataInicial, intervalos[i + 1].slotInicial);
+    return { deData: de.data, deSlot: de.slot, ateData: ate.data, ateSlot: ate.slot };
+  });
 }

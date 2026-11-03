@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { gerarApontamentosAutomaticamente } from "@/lib/apontamentos";
-import { intervaloEmOrdem } from "@/lib/tipos";
+import { TrechoSemCobranca, intervaloEmOrdem } from "@/lib/tipos";
 import { proximoNumeroSequencial } from "@/lib/numeracao";
 
 export async function criarOperacao(formData: FormData) {
@@ -25,18 +25,20 @@ export async function criarOperacao(formData: FormData) {
   // aqui, antes de criar a operação, em vez de deixar o sorteio travar depois.
   if (!intervaloEmOrdem(new Date(dataInicial), slotInicial, new Date(dataFinal), slotFinal)) return;
 
-  // Dias sem cobrança no meio da operação (opcional): ficam de fora do sorteio
-  // automático, e os relatórios passam a mostrar os trechos separados.
+  // Trecho sem cobrança no meio da operação (opcional, data + período): fica
+  // de fora do sorteio automático, e os relatórios mostram os trechos separados.
   const semCobrancaDe = String(formData.get("semCobrancaDe") ?? "");
   const semCobrancaAte = String(formData.get("semCobrancaAte") ?? "");
-  let semCobranca: { de: Date; ate: Date } | null = null;
+  let semCobranca: TrechoSemCobranca | null = null;
   if (semCobrancaDe || semCobrancaAte) {
-    const de = new Date(semCobrancaDe || semCobrancaAte);
-    const ate = new Date(semCobrancaAte || semCobrancaDe);
-    if (Number.isNaN(de.getTime()) || Number.isNaN(ate.getTime()) || ate < de) {
-      redirect(`/operacoes?erro=${encodeURIComponent("Dias sem cobrança: a data final não pode ser anterior à inicial.")}`);
+    const deData = new Date(semCobrancaDe || semCobrancaAte);
+    const ateData = new Date(semCobrancaAte || semCobrancaDe);
+    const deSlot = Number(formData.get("semCobrancaDeSlot") ?? 0);
+    const ateSlot = Number(formData.get("semCobrancaAteSlot") ?? 3);
+    if (!intervaloEmOrdem(deData, deSlot, ateData, ateSlot)) {
+      redirect(`/operacoes?erro=${encodeURIComponent("Sem cobrança: o período final não pode ser anterior ao inicial.")}`);
     }
-    semCobranca = { de, ate };
+    semCobranca = { deData, deSlot, ateData, ateSlot };
   }
 
   let operacao;

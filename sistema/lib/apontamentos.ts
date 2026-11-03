@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { dataNoIntervalo, enumerarPeriodos, gradeDoPorto } from "@/lib/tipos";
+import { TrechoSemCobranca, enumerarPeriodos, gradeDoPorto, periodoNoTrecho } from "@/lib/tipos";
 
 export function escolherVigiaAleatorio(vigiaIds: number[]): number | null {
   if (vigiaIds.length === 0) return null;
@@ -22,12 +22,12 @@ type OperacaoParaGeracao = {
  * período. Pula períodos que já têm apontamento lançado (idempotente, então
  * pode ser chamada de novo com segurança).
  *
- * `semCobranca` (opcional): um ou mais trechos de dias, inclusive, que ficam de fora do sorteio — ex:
+ * `semCobranca` (opcional): um ou mais trechos (data + período), inclusive, que ficam de fora do sorteio — ex:
  * navio que atracou no meio da operação e esse trecho não é cobrado.
  */
 export async function gerarApontamentosAutomaticamente(
   operacao: OperacaoParaGeracao,
-  semCobranca?: { de: Date; ate: Date } | { de: Date; ate: Date }[] | null
+  semCobranca?: TrechoSemCobranca | TrechoSemCobranca[] | null
 ) {
   const vaos = semCobranca ? (Array.isArray(semCobranca) ? semCobranca : [semCobranca]) : [];
   const [vigias, existentes] = await Promise.all([
@@ -45,9 +45,9 @@ export async function gerarApontamentosAutomaticamente(
   const periodos = enumerarPeriodos(operacao.dataInicial, operacao.slotInicial, operacao.dataFinal, operacao.slotFinal);
 
   const novos = periodos
+    .filter(({ data, slot }) => !vaos.some((v) => periodoNoTrecho(data, slot, v)))
     .map(({ data, slot }) => ({ data, janela: grade[slot] }))
     .filter(({ data, janela }) => janela && !jaLancados.has(`${data.getTime()}|${janela.inicial}`))
-    .filter(({ data }) => !vaos.some((v) => dataNoIntervalo(data, v.de, v.ate)))
     .map(({ data, janela }) => ({
       operacaoId: operacao.id,
       vigiaId: escolherVigiaAleatorio(vigiaIds)!,

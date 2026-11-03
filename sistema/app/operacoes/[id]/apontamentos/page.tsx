@@ -90,26 +90,49 @@ export default async function ApontamentosPage({ params }: { params: Promise<{ i
 
       <form
         action={excluirApontamentosIntervalo}
-        className="rounded-lg border border-slate-200 bg-white p-4 grid gap-3 sm:grid-cols-6 items-end"
+        className="rounded-lg border border-slate-200 bg-white p-4 grid gap-3 sm:grid-cols-4 items-end"
       >
         <input type="hidden" name="operacaoId" value={operacao.id} />
-        <div className="sm:col-span-3">
-          <p className="text-sm font-medium">Retirar dias sem cobrança</p>
+        <div className="sm:col-span-4">
+          <p className="text-sm font-medium">Retirar trecho sem cobrança</p>
           <p className="text-xs text-slate-500">
-            Exclui todos os apontamentos entre as duas datas (ex.: navio atracado de 16 a 23/10 que não será cobrado nesta operação).
+            Exclui todos os apontamentos do primeiro ao último período informado, inclusive (ex.: navio atracado do 3º
+            período de 15/10 ao 2º período de 24/10, que não será cobrado nesta operação).
           </p>
         </div>
         <div>
-          <label className="block text-xs text-slate-600">De</label>
+          <label className="block text-xs text-slate-600">A partir de (data)</label>
           <input name="de" type="date" required className="w-full rounded border border-slate-300 px-2 py-1" />
         </div>
         <div>
-          <label className="block text-xs text-slate-600">Até</label>
+          <label className="block text-xs text-slate-600">Primeiro período sem cobrança</label>
+          <select name="deSlot" defaultValue={0} className="w-full rounded border border-slate-300 px-2 py-1">
+            {grade.map((_, i) => (
+              <option key={i} value={i}>
+                {i + 1}º · {rotuloSlotComHora(operacao.porto, i)}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs text-slate-600">Até (data)</label>
           <input name="ate" type="date" required className="w-full rounded border border-slate-300 px-2 py-1" />
         </div>
-        <button type="submit" className="rounded border border-red-300 px-4 py-1.5 text-sm text-red-700 hover:bg-red-50">
-          Excluir esses dias
-        </button>
+        <div>
+          <label className="block text-xs text-slate-600">Último período sem cobrança</label>
+          <select name="ateSlot" defaultValue={3} className="w-full rounded border border-slate-300 px-2 py-1">
+            {grade.map((_, i) => (
+              <option key={i} value={i}>
+                {i + 1}º · {rotuloSlotComHora(operacao.porto, i)}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="sm:col-span-4">
+          <button type="submit" className="rounded border border-red-300 px-4 py-1.5 text-sm text-red-700 hover:bg-red-50">
+            Excluir esses períodos
+          </button>
+        </div>
       </form>
 
       {operacao.modoVigia === "ALEATORIO" && (
